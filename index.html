@@ -131,6 +131,16 @@ tfoot td.r{text-align:right}
 .p-ag{background:#e6eefa;color:var(--blue)}
 .p-ao{background:#f0eaf5;color:var(--purple-l)}
 
+/* ANTECIPAÇÃO */
+.antecip-box{margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--border)}
+.antecip-label{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.antecip-nums{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.antecip-pct{font-size:22px;font-weight:700;color:var(--purple)}
+.antecip-det{font-size:11px;color:var(--muted)}
+.antecip-bar-bg{background:var(--bg);border-radius:6px;height:7px;overflow:hidden}
+.antecip-bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--gold),var(--gold-l));transition:width .6s}
+.pct-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+
 @media(max-width:600px){header{padding:14px 16px}.wrap{padding:16px 12px 40px}.filter-bar{flex-direction:column}.nav-tabs{overflow-x:auto}}
 </style>
 </head>
@@ -327,8 +337,9 @@ const MAPA = {
   status:    ['status','situação','situacao'],
   periodo:   ['período','periodo','competência','competencia'],
   assinatura:['assinatura','dt assinatura','data assinatura','data de assinatura'],
-  modalidade:['modalidade','tipo'],
-  plano:     ['plano','produto'],
+  modalidade:   ['modalidade','tipo'],
+  plano:        ['plano','produto'],
+  antecipacao:  ['antecipação','antecipacao','antecip'],
 };
 
 function findCol(headers, keys) {
@@ -386,8 +397,9 @@ function processarDados(rows) {
     statusKey:  '',
     periodo:    col.periodo   ?String(r[col.periodo]   ||'').trim():'—',
     assinatura: col.assinatura?parseData(r[col.assinatura])        :'—',
-    modalidade: col.modalidade?String(r[col.modalidade]||'').trim():'—',
-    plano:      col.plano     ?String(r[col.plano]     ||'').trim():'—',
+    modalidade:   col.modalidade   ? String(r[col.modalidade]  ||'').trim() : '—',
+    plano:        col.plano        ? String(r[col.plano]       ||'').trim() : '—',
+    antecipacao:  col.antecipacao  ? String(r[col.antecipacao] ||'').trim().toLowerCase() === 'sim' : false,
   })).filter(r=>r.cod&&r.operadora);
 
   DATA.forEach(r=>r.statusKey=classifyStatus(r.status));
@@ -494,6 +506,11 @@ function renderResumo() {
         </div>
       </div>`).join('');
 
+    // antecipação
+    const antQtd = rows.filter(r=>r.antecipacao).length;
+    const antPct = qtd ? ((antQtd/qtd)*100).toFixed(1) : '0.0';
+    const antVal = rows.filter(r=>r.antecipacao).reduce((s,r)=>s+r.boleto,0);
+
     // barra proporcional por status
     const barSegs = STATUS_CFG.filter(s=>byStatus[s.key].qtd>0).map(s=>`
       <div class="bar-seg" style="width:${((byStatus[s.key].qtd/qtd)*100).toFixed(1)}%;background:${s.dot}" title="${s.label}: ${byStatus[s.key].qtd}"></div>`).join('');
@@ -511,6 +528,16 @@ function renderResumo() {
         </div>
         <div class="status-list">${statusRows||'<span style="color:var(--muted);font-size:12px">Sem registros.</span>'}</div>
         <div class="periodo-bar"><div class="bar-track">${barSegs}</div></div>
+        <div class="antecip-box">
+          <div class="antecip-label">⚡ Antecipação</div>
+          <div class="antecip-nums">
+            <span class="antecip-pct">${antPct}%</span>
+            <span class="antecip-det">${antQtd} de ${qtd} · R$ ${fmt(antVal)}</span>
+          </div>
+          <div class="antecip-bar-bg">
+            <div class="antecip-bar-fill" style="width:${antPct}%"></div>
+          </div>
+        </div>
       </div>
     </div>`;
   }).join('') || '<p style="color:var(--muted);padding:20px 0">Nenhum dado para os filtros selecionados.</p>';
@@ -521,9 +548,9 @@ function renderResumo() {
   document.getElementById('thPeriodo').innerHTML =
     `<th>Período</th><th>Total Vendas</th>` +
     statusPresentes.map(s=>`<th>${s.label}</th>`).join('') +
-    `<th>Valor Total (R$)</th>`;
+    `<th>Antecipadas</th><th>% Antecip.</th><th>Valor Total (R$)</th>`;
 
-  const totais = {qtd:0, val:0};
+  const totais = {qtd:0, val:0, ant:0};
   const totSt  = {};
   statusPresentes.forEach(s=>totSt[s.key]=0);
 
@@ -531,22 +558,29 @@ function renderResumo() {
     const rows  = data.filter(r=>r.periodo===per);
     const qtd   = rows.length;
     const val   = rows.reduce((s,r)=>s+r.boleto,0);
+    const ant   = rows.filter(r=>r.antecipacao).length;
+    const pct   = qtd ? ((ant/qtd)*100).toFixed(1) : '0.0';
     const stCnt = {};
     statusPresentes.forEach(s=>stCnt[s.key]=rows.filter(r=>r.statusKey===s.key).length);
-    totais.qtd+=qtd; totais.val+=val;
+    totais.qtd+=qtd; totais.val+=val; totais.ant+=ant;
     statusPresentes.forEach(s=>totSt[s.key]+=stCnt[s.key]);
     return `<tr>
       <td><strong>${per}</strong></td>
       <td class="r">${qtd}</td>
       ${statusPresentes.map(s=>`<td class="r">${stCnt[s.key]||0}</td>`).join('')}
+      <td class="r">${ant}</td>
+      <td class="r"><span class="pct-badge" style="background:${parseFloat(pct)>=50?'#e6f4ee':'#fef0e0'};color:${parseFloat(pct)>=50?'#2e7d5e':'#b8540a'}">${pct}%</span></td>
       <td class="r">R$ ${fmt(val)}</td>
     </tr>`;
   }).join('');
 
+  const totPct = totais.qtd ? ((totais.ant/totais.qtd)*100).toFixed(1) : '0.0';
   document.getElementById('tfPeriodo').innerHTML = `<tr>
     <td><strong>TOTAL</strong></td>
     <td class="r"><strong>${totais.qtd}</strong></td>
     ${statusPresentes.map(s=>`<td class="r"><strong>${totSt[s.key]}</strong></td>`).join('')}
+    <td class="r"><strong>${totais.ant}</strong></td>
+    <td class="r"><strong>${totPct}%</strong></td>
     <td class="r"><strong>R$ ${fmt(totais.val)}</strong></td>
   </tr>`;
 }
