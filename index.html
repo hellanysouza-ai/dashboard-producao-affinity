@@ -141,7 +141,31 @@ tfoot td.r{text-align:right}
 .antecip-bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--gold),var(--gold-l));transition:width .6s}
 .pct-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
 
-@media(max-width:600px){header{padding:14px 16px}.wrap{padding:16px 12px 40px}.filter-bar{flex-direction:column}.nav-tabs{overflow-x:auto}}
+/* BÔNUS */
+.bonus-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 24px;margin-bottom:22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.bonus-bar label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.bonus-title{font-size:14px;font-weight:700;color:var(--purple);display:flex;align-items:center;gap:8px}
+.bonus-title span{font-size:18px}
+.bonus-input-wrap{display:flex;align-items:center;gap:6px}
+.bonus-input{width:80px;padding:8px 10px;border:1.5px solid var(--gold);border-radius:8px;font-size:16px;font-weight:700;color:var(--purple);text-align:center;outline:none}
+.bonus-input:focus{border-color:var(--gold-l);box-shadow:0 0 0 3px rgba(201,145,58,.15)}
+.bonus-pct-label{font-size:14px;font-weight:700;color:var(--gold)}
+.bonus-info{font-size:12px;color:var(--muted);margin-left:8px}
+
+/* BÔNUS no card de período */
+.bonus-box{margin-top:12px;padding-top:12px;border-top:1.5px dashed var(--border);background:linear-gradient(135deg,#fdf6ee,#fff);border-radius:8px;padding:12px}
+.bonus-box-label{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.bonus-box-val{font-size:20px;font-weight:700;color:var(--purple)}
+.bonus-box-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* BOTÃO EXPORTAR */
+.btn-export{background:var(--green);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;height:38px;align-self:flex-end;display:flex;align-items:center;gap:6px;transition:background .18s}
+.btn-export:hover{background:#236649}
+
+/* FILTRO ANTECIPAÇÃO */
+.fg select.ant-sel{min-width:130px}
+
+@media(max-width:600px){header{padding:14px 16px}.wrap{padding:16px 12px 40px}.filter-bar{flex-direction:column}.nav-tabs{overflow-x:auto}.bonus-bar{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
@@ -161,8 +185,8 @@ tfoot td.r{text-align:right}
     <h2>Faça o upload da planilha de produção</h2>
     <p>Arraste e solte o arquivo aqui, ou clique para selecionar</p>
     <button class="btn-up" onclick="document.getElementById('fileInput').click()">Selecionar Arquivo</button>
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
-    <div class="upload-hint">Formatos aceitos: .xlsx · .xls · .csv</div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.xml">
+    <div class="upload-hint">Formatos aceitos: .xlsx · .xls · .csv · .xml (Excel XML)</div>
   </div>
 </div>
 
@@ -193,6 +217,19 @@ tfoot td.r{text-align:right}
          TAB 1 — RESUMO POR PERÍODO
     ══════════════════════════════════════════ -->
     <div class="tab-content active" id="tab-resumo">
+
+      <!-- BÔNUS CONFIGURÁVEL -->
+      <div class="bonus-bar">
+        <div class="bonus-title"><span>🎯</span> Bônus por Produção</div>
+        <div>
+          <label>% de Bônus</label>
+          <div class="bonus-input-wrap">
+            <input class="bonus-input" type="number" id="bonusPct" value="0" min="0" max="100" step="0.1" oninput="renderResumo()">
+            <span class="bonus-pct-label">%</span>
+            <span class="bonus-info">calculado sobre o valor total implantado de cada período</span>
+          </div>
+        </div>
+      </div>
 
       <!-- FILTROS DO RESUMO -->
       <div class="filter-bar">
@@ -252,9 +289,16 @@ tfoot td.r{text-align:right}
           <select id="fOp2" onchange="renderDetalhe()"><option value="">Todas</option></select></div>
         <div class="fg"><label>Status</label>
           <select id="fStatus2" onchange="renderDetalhe()"><option value="">Todos</option></select></div>
+        <div class="fg"><label>Antecipação</label>
+          <select id="fAntecip" class="ant-sel" onchange="renderDetalhe()">
+            <option value="">Todas</option>
+            <option value="sim">✅ Sim</option>
+            <option value="nao">❌ Não</option>
+          </select></div>
         <div class="fg"><label>Buscar Segurado</label>
           <input type="text" id="fBusca" placeholder="Nome..." oninput="renderDetalhe()"></div>
         <button class="btn-r" onclick="resetDet()">✕ Limpar</button>
+        <button class="btn-export" onclick="exportarExcel()">⬇ Exportar Excel</button>
       </div>
       <div class="sec-head"><h2>Detalhamento das Vendas</h2><span class="badge" id="bDet">0</span></div>
       <div class="tbl-wrap">
@@ -263,7 +307,7 @@ tfoot td.r{text-align:right}
             <thead><tr>
               <th>Segurado</th><th>Operadora</th><th>Modalidade</th>
               <th>Plano</th><th>Boleto (R$)</th><th>Assinatura</th>
-              <th>Período</th><th>Status</th>
+              <th>Período</th><th>Antecipação</th><th>Status</th>
             </tr></thead>
             <tbody id="detBody"></tbody>
             <tfoot id="detFoot"></tfoot>
@@ -314,32 +358,110 @@ document.getElementById('fileInput').addEventListener('change', e=>{if(e.target.
 function lerArquivo(file) {
   document.getElementById('uploadArea').style.display='none';
   document.getElementById('loadingMsg').style.display='block';
+
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  // XML do Excel (SpreadsheetML) — lê como texto e parseia manualmente
+  if (ext === 'xml') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const rows = parseXmlExcel(e.target.result);
+        if (!rows.length) { alert('Arquivo XML vazio ou sem dados.'); resetUpload(); return; }
+        processarDados(rows);
+      } catch(err) { alert('Erro ao ler XML: ' + err.message); resetUpload(); }
+    };
+    reader.readAsText(file, 'utf-8');
+    return;
+  }
+
+  // xlsx / xls / csv — SheetJS
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
-      if (!rows.length){alert('Planilha vazia.');resetUpload();return;}
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+      if (!rows.length) { alert('Planilha vazia.'); resetUpload(); return; }
       processarDados(rows);
-    } catch(err){alert('Erro ao ler: '+err.message);resetUpload();}
+    } catch(err) { alert('Erro ao ler: ' + err.message); resetUpload(); }
   };
   reader.readAsArrayBuffer(file);
 }
 
+// ─── PARSER XML SPREADSHEETML ────────────────────────────────
+function parseXmlExcel(xmlText) {
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(xmlText, 'application/xml');
+
+  // Namespace padrão do SpreadsheetML
+  const NS = 'urn:schemas-microsoft-com:office:spreadsheet';
+
+  function cellText(cell) {
+    const data = cell.getElementsByTagNameNS(NS, 'Data')[0];
+    if (!data) return '';
+    const tipo = data.getAttribute('ss:Type') || '';
+    const val  = data.textContent || '';
+    // Datas: formato ISO → dd/mm/yyyy
+    if (tipo === 'DateTime' && val.includes('T')) {
+      const d = new Date(val);
+      return isNaN(d) ? val : d.toLocaleDateString('pt-BR');
+    }
+    return val;
+  }
+
+  const allRows = doc.getElementsByTagNameNS(NS, 'Row');
+  if (!allRows.length) return [];
+
+  // Linha 0 = cabeçalho
+  const headerCells = allRows[0].getElementsByTagNameNS(NS, 'Cell');
+  const headers = [];
+  for (let i = 0; i < headerCells.length; i++) {
+    headers.push(cellText(headerCells[i]));
+  }
+
+  // Lidar com colunas duplicadas (ex: "Produção" aparece 2x)
+  const seenH = {};
+  const uniqHeaders = headers.map(h => {
+    if (!h) return '_vazio_';
+    seenH[h] = (seenH[h] || 0) + 1;
+    return seenH[h] > 1 ? h + '_' + seenH[h] : h;
+  });
+
+  const result = [];
+  for (let r = 1; r < allRows.length; r++) {
+    const cells = allRows[r].getElementsByTagNameNS(NS, 'Cell');
+    const obj = {};
+    // Suporte a ss:Index (células com índice explícito, pulando vazias)
+    let lastIdx = 0;
+    for (let c = 0; c < cells.length; c++) {
+      const idxAttr = cells[c].getAttribute('ss:Index');
+      const col = idxAttr ? parseInt(idxAttr) - 1 : lastIdx;
+      lastIdx = col + 1;
+      if (col < uniqHeaders.length) {
+        obj[uniqHeaders[col]] = cellText(cells[c]);
+      }
+    }
+    // Preencher colunas ausentes com ''
+    uniqHeaders.forEach(h => { if (!(h in obj)) obj[h] = ''; });
+    result.push(obj);
+  }
+  return result;
+}
+
 // ─── MAPEAMENTO ───────────────────────────────────────────────
 const MAPA = {
-  segurado:  ['segurado','beneficiário','beneficiario','nome segurado','nome'],
-  cod:       ['cód. corretor','cod. corretor','código corretor','codigo corretor','cód corretor','cod corretor'],
-  corretor:  ['corretor','nome corretor'],
-  operadora: ['operadora','seguradora'],
-  boleto:    ['boleto','valor boleto','vlr boleto','valor'],
-  status:    ['status','situação','situacao'],
-  periodo:   ['período','periodo','competência','competencia'],
-  assinatura:['assinatura','dt assinatura','data assinatura','data de assinatura'],
-  modalidade:   ['modalidade','tipo'],
-  plano:        ['plano','produto'],
-  antecipacao:  ['antecipação','antecipacao','antecip'],
+  segurado:    ['segurado','beneficiário','beneficiario','nome segurado','nome'],
+  cod:         ['cód. corretor','cod. corretor','código corretor','codigo corretor','cód corretor','cod corretor'],
+  corretor:    ['corretor','nome corretor'],
+  operadora:   ['operadora','seguradora'],
+  boleto:      ['boleto','valor boleto','vlr boleto','valor'],
+  status:      ['status','situação','situacao'],
+  periodo:     ['período','periodo','competência','competencia'],
+  assinatura:  ['assinatura','dt assinatura','data assinatura','data de assinatura'],
+  modalidade:  ['modalidade','tipo'],
+  plano:       ['plano','produto','subproduto'],
+  antecipacao: ['antecipação','antecipacao','antecip'],
 };
 
 function findCol(headers, keys) {
@@ -468,17 +590,21 @@ function resetResumo() {
 
 function renderResumo() {
   const data    = filtResumo();
+  const bonusPct = parseFloat(document.getElementById('bonusPct')?.value || 0) || 0;
   const total   = data.length;
   const totalV  = data.reduce((s,r)=>s+r.boleto,0);
   const imp     = data.filter(r=>r.statusKey==='implantada').length;
+  const totalImp = data.filter(r=>r.statusKey==='implantada').reduce((s,r)=>s+r.boleto,0);
   const periodos= sortPeriodos([...new Set(data.map(r=>r.periodo))].filter(Boolean));
 
   // KPIs
+  const bonusTotal = totalImp * bonusPct / 100;
   document.getElementById('kpiGeral').innerHTML=`
     <div class="kpi"><div class="kpi-label">Total de Vendas</div><div class="kpi-val">${total}</div><div class="kpi-sub">no filtro selecionado</div></div>
     <div class="kpi"><div class="kpi-label">Valor Total</div><div class="kpi-val" style="font-size:18px">R$&nbsp;${fmt(totalV)}</div><div class="kpi-sub">soma dos boletos</div></div>
-    <div class="kpi p"><div class="kpi-label">Implantadas</div><div class="kpi-val">${imp}</div><div class="kpi-sub">${total?((imp/total)*100).toFixed(0):0}% do total</div></div>
+    <div class="kpi p"><div class="kpi-label">Implantadas</div><div class="kpi-val">${imp}</div><div class="kpi-sub">${total?((imp/total)*100).toFixed(0):0}% · R$ ${fmt(totalImp)}</div></div>
     <div class="kpi p"><div class="kpi-label">Períodos</div><div class="kpi-val">${periodos.length}</div><div class="kpi-sub">${periodos[0]||'—'} → ${periodos[periodos.length-1]||'—'}</div></div>
+    ${bonusPct > 0 ? `<div class="kpi" style="border-left-color:#C9913A"><div class="kpi-label">🎯 Bônus Total (${bonusPct}%)</div><div class="kpi-val" style="font-size:18px;color:#C9913A">R$&nbsp;${fmt(bonusTotal)}</div><div class="kpi-sub">sobre R$ ${fmt(totalImp)} implantado</div></div>` : ''}
   `;
 
   document.getElementById('bPeriodo').textContent = periodos.length;
@@ -489,6 +615,7 @@ function renderResumo() {
     const rows = data.filter(r=>r.periodo===per);
     const qtd  = rows.length;
     const val  = rows.reduce((s,r)=>s+r.boleto,0);
+    const valImp = rows.filter(r=>r.statusKey==='implantada').reduce((s,r)=>s+r.boleto,0);
 
     // contagem por status
     const byStatus = {};
@@ -538,6 +665,11 @@ function renderResumo() {
             <div class="antecip-bar-fill" style="width:${antPct}%"></div>
           </div>
         </div>
+        ${bonusPct > 0 ? `<div class="bonus-box" style="margin-top:12px">
+          <div class="bonus-box-label">🎯 Bônus (${bonusPct}%)</div>
+          <div class="bonus-box-val">R$ ${fmt(valImp * bonusPct / 100)}</div>
+          <div class="bonus-box-sub">base: R$ ${fmt(valImp)} implantado</div>
+        </div>` : ''}
       </div>
     </div>`;
   }).join('') || '<p style="color:var(--muted);padding:20px 0">Nenhum dado para os filtros selecionados.</p>';
@@ -548,9 +680,11 @@ function renderResumo() {
   document.getElementById('thPeriodo').innerHTML =
     `<th>Período</th><th>Total Vendas</th>` +
     statusPresentes.map(s=>`<th>${s.label}</th>`).join('') +
-    `<th>Antecipadas</th><th>% Antecip.</th><th>Valor Total (R$)</th>`;
+    `<th>Antecipadas</th><th>% Antecip.</th>` +
+    (bonusPct > 0 ? `<th>🎯 Bônus (${bonusPct}%)</th>` : '') +
+    `<th>Valor Total (R$)</th>`;
 
-  const totais = {qtd:0, val:0, ant:0};
+  const totais = {qtd:0, val:0, ant:0, imp:0};
   const totSt  = {};
   statusPresentes.forEach(s=>totSt[s.key]=0);
 
@@ -560,9 +694,11 @@ function renderResumo() {
     const val   = rows.reduce((s,r)=>s+r.boleto,0);
     const ant   = rows.filter(r=>r.antecipacao).length;
     const pct   = qtd ? ((ant/qtd)*100).toFixed(1) : '0.0';
+    const impV  = rows.filter(r=>r.statusKey==='implantada').reduce((s,r)=>s+r.boleto,0);
+    const bonus = impV * bonusPct / 100;
     const stCnt = {};
     statusPresentes.forEach(s=>stCnt[s.key]=rows.filter(r=>r.statusKey===s.key).length);
-    totais.qtd+=qtd; totais.val+=val; totais.ant+=ant;
+    totais.qtd+=qtd; totais.val+=val; totais.ant+=ant; totais.imp+=impV;
     statusPresentes.forEach(s=>totSt[s.key]+=stCnt[s.key]);
     return `<tr>
       <td><strong>${per}</strong></td>
@@ -570,17 +706,20 @@ function renderResumo() {
       ${statusPresentes.map(s=>`<td class="r">${stCnt[s.key]||0}</td>`).join('')}
       <td class="r">${ant}</td>
       <td class="r"><span class="pct-badge" style="background:${parseFloat(pct)>=50?'#e6f4ee':'#fef0e0'};color:${parseFloat(pct)>=50?'#2e7d5e':'#b8540a'}">${pct}%</span></td>
+      ${bonusPct > 0 ? `<td class="r" style="color:var(--gold);font-weight:700">R$ ${fmt(bonus)}</td>` : ''}
       <td class="r">R$ ${fmt(val)}</td>
     </tr>`;
-  }).join('');
+  }).join('') || `<tr><td colspan="99" style="text-align:center;padding:20px;color:var(--muted)">Nenhum dado.</td></tr>`;
 
   const totPct = totais.qtd ? ((totais.ant/totais.qtd)*100).toFixed(1) : '0.0';
+  const totBonus = totais.imp * bonusPct / 100;
   document.getElementById('tfPeriodo').innerHTML = `<tr>
     <td><strong>TOTAL</strong></td>
     <td class="r"><strong>${totais.qtd}</strong></td>
     ${statusPresentes.map(s=>`<td class="r"><strong>${totSt[s.key]}</strong></td>`).join('')}
     <td class="r"><strong>${totais.ant}</strong></td>
     <td class="r"><strong>${totPct}%</strong></td>
+    ${bonusPct > 0 ? `<td class="r" style="color:var(--gold);font-weight:700">R$ ${fmt(totBonus)}</td>` : ''}
     <td class="r"><strong>R$ ${fmt(totais.val)}</strong></td>
   </tr>`;
 }
@@ -639,45 +778,141 @@ function resetOp(){
 // TAB 3 — DETALHAMENTO
 // ══════════════════════════════════════════════════════════════
 function filtDet() {
-  const p=document.getElementById('fPeriodo2').value;
-  const op=document.getElementById('fOp2').value;
-  const s=document.getElementById('fStatus2').value;
-  const q=document.getElementById('fBusca').value.toLowerCase().trim();
+  const p   = document.getElementById('fPeriodo2').value;
+  const op  = document.getElementById('fOp2').value;
+  const s   = document.getElementById('fStatus2').value;
+  const ant = document.getElementById('fAntecip').value;
+  const q   = document.getElementById('fBusca').value.toLowerCase().trim();
   return DATA.filter(r=>{
-    if(p&&r.periodo!==p)   return false;
-    if(op&&r.operadora!==op)return false;
-    if(s&&r.status!==s)    return false;
-    if(q&&!r.segurado.toLowerCase().includes(q))return false;
+    if(p  && r.periodo   !== p)   return false;
+    if(op && r.operadora !== op)  return false;
+    if(s  && r.status    !== s)   return false;
+    if(ant === 'sim' && !r.antecipacao)  return false;
+    if(ant === 'nao' &&  r.antecipacao)  return false;
+    if(q  && !r.segurado.toLowerCase().includes(q)) return false;
     return true;
   });
 }
 
 function renderDetalhe() {
-  const data=filtDet();
-  document.getElementById('bDet').textContent=data.length;
-  const shown=data.slice(0,500);
-  document.getElementById('detBody').innerHTML=shown.length?shown.map(r=>`
+  const data = filtDet();
+  document.getElementById('bDet').textContent = data.length;
+  const shown = data.slice(0, 500);
+  document.getElementById('detBody').innerHTML = shown.length ? shown.map(r=>`
     <tr>
-      <td>${r.segurado||'—'}</td><td>${r.operadora}</td><td>${r.modalidade}</td>
-      <td>${r.plano}</td><td class="r">R$ ${fmt(r.boleto)}</td>
-      <td>${r.assinatura||'—'}</td><td>${r.periodo||'—'}</td>
+      <td>${r.segurado||'—'}</td>
+      <td>${r.operadora}</td>
+      <td>${r.modalidade}</td>
+      <td>${r.plano}</td>
+      <td class="r">R$ ${fmt(r.boleto)}</td>
+      <td>${r.assinatura||'—'}</td>
+      <td>${r.periodo||'—'}</td>
+      <td style="text-align:center">${r.antecipacao ? '<span class="pill p-imp">Sim</span>' : '<span class="pill p-canc">Não</span>'}</td>
       <td>${pillStatus(r.status)}</td>
-    </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Nenhum registro encontrado.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">Nenhum registro encontrado.</td></tr>';
 
-  const totV=data.reduce((s,r)=>s+r.boleto,0);
-  document.getElementById('detFoot').innerHTML=`<tr>
+  const totV = data.reduce((s,r)=>s+r.boleto, 0);
+  const totA = data.filter(r=>r.antecipacao).length;
+  document.getElementById('detFoot').innerHTML = `<tr>
     <td colspan="4"><strong>TOTAL (${data.length} registros)</strong></td>
-    <td class="r">R$ ${fmt(totV)}</td><td colspan="3"></td></tr>`;
-  if(data.length>500)
-    document.getElementById('detBody').innerHTML+=`<tr><td colspan="8" style="text-align:center;padding:10px;color:var(--muted);font-size:12px">Exibindo 500 de ${data.length}. Use os filtros para refinar.</td></tr>`;
+    <td class="r">R$ ${fmt(totV)}</td>
+    <td colspan="2"></td>
+    <td style="text-align:center;font-weight:700">${totA} antecip.</td>
+    <td></td>
+  </tr>`;
+  if(data.length > 500)
+    document.getElementById('detBody').innerHTML += `<tr><td colspan="9" style="text-align:center;padding:10px;color:var(--muted);font-size:12px">Exibindo 500 de ${data.length}. Use os filtros para refinar.</td></tr>`;
 }
 
 function resetDet(){
   document.getElementById('fPeriodo2').value='';
   document.getElementById('fOp2').value='';
   document.getElementById('fStatus2').value='';
+  document.getElementById('fAntecip').value='';
   document.getElementById('fBusca').value='';
   renderDetalhe();
+}
+
+function exportarExcel() {
+  const data = filtDet();
+  if (!data.length) { alert('Nenhum dado para exportar.'); return; }
+
+  const corretor = document.getElementById('infoNome').textContent;
+  const cod      = document.getElementById('infoCod').textContent;
+  const agora    = new Date().toLocaleDateString('pt-BR');
+
+  // Cabeçalho informativo
+  const cabecalho = [
+    ['Affinity Corretora de Seguros — Dashboard de Produção'],
+    [`Corretor: ${corretor}   |   ${cod}   |   Exportado em: ${agora}`],
+    [],
+    ['Segurado','Operadora','Modalidade','Plano','Boleto (R$)','Assinatura','Período','Antecipação','Status']
+  ];
+
+  const linhas = data.map(r => [
+    r.segurado,
+    r.operadora,
+    r.modalidade,
+    r.plano,
+    r.boleto,
+    r.assinatura,
+    r.periodo,
+    r.antecipacao ? 'Sim' : 'Não',
+    r.status
+  ]);
+
+  const totV = data.reduce((s,r)=>s+r.boleto,0);
+  const totA = data.filter(r=>r.antecipacao).length;
+  const rodape = [
+    [],
+    [`TOTAL: ${data.length} registros`, '', '', '', totV, '', '', `${totA} antecipadas`, '']
+  ];
+
+  const wb   = XLSX.utils.book_new();
+  const rows = [...cabecalho, ...linhas, ...rodape];
+  const ws   = XLSX.utils.aoa_to_sheet(rows);
+
+  // Larguras de coluna
+  ws['!cols'] = [
+    {wch:40},{wch:20},{wch:18},{wch:15},{wch:14},
+    {wch:13},{wch:10},{wch:13},{wch:28}
+  ];
+
+  // Estilos (cabeçalho roxo + negrito)
+  const purple = '4A2050';
+  const gold   = 'C9913A';
+  const headerStyle = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:purple}}, alignment:{horizontal:'center'} };
+  const titleStyle  = { font:{bold:true,sz:13,color:{rgb:purple}} };
+  const subStyle    = { font:{italic:true,color:{rgb:'7a6080'}} };
+  const colStyle    = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:purple}} };
+  const totStyle    = { font:{bold:true,color:{rgb:purple}}, fill:{fgColor:{rgb:'f0ebf5'}} };
+
+  // Linha 1 título
+  if(ws['A1']) { ws['A1'].s = titleStyle; }
+  if(ws['A2']) { ws['A2'].s = subStyle; }
+
+  // Linha de colunas (row 4 = index 3)
+  ['A','B','C','D','E','F','G','H','I'].forEach(c => {
+    const cell = ws[c+'4'];
+    if(cell) cell.s = colStyle;
+  });
+
+  // Linha de total
+  const totRow = 4 + linhas.length + 2;
+  ['A','B','C','D','E','F','G','H','I'].forEach(c => {
+    const cell = ws[c+totRow];
+    if(cell) cell.s = totStyle;
+  });
+
+  // Merge título
+  ws['!merges'] = [
+    {s:{r:0,c:0}, e:{r:0,c:8}},
+    {s:{r:1,c:0}, e:{r:1,c:8}},
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Detalhamento');
+  const periodo = document.getElementById('fPeriodo2').value || 'todos';
+  XLSX.writeFile(wb, 'producao_' + corretor.split(' ')[0].toLowerCase() + '_' + periodo.replace('/','_') + '.xlsx');
 }
 
 // ─── UTILS ───────────────────────────────────────────────────
