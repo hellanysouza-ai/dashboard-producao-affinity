@@ -141,18 +141,16 @@ tfoot td.r{text-align:right}
 .antecip-bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--gold),var(--gold-l));transition:width .6s}
 .pct-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
 
-/* BÔNUS */
-.bonus-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 24px;margin-bottom:22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.bonus-bar label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.bonus-title{font-size:14px;font-weight:700;color:var(--purple);display:flex;align-items:center;gap:8px}
-.bonus-title span{font-size:18px}
-.bonus-input-wrap{display:flex;align-items:center;gap:6px}
-.bonus-input{width:80px;padding:8px 10px;border:1.5px solid var(--gold);border-radius:8px;font-size:16px;font-weight:700;color:var(--purple);text-align:center;outline:none}
-.bonus-input:focus{border-color:var(--gold-l);box-shadow:0 0 0 3px rgba(201,145,58,.15)}
-.bonus-pct-label{font-size:14px;font-weight:700;color:var(--gold)}
-.bonus-info{font-size:12px;color:var(--muted);margin-left:8px}
+/* BÔNUS INLINE NA BARRA DO CORRETOR */
+.bonus-inline{display:flex;flex-direction:column;gap:4px}
+.bonus-inline label{font-size:11px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px}
+.bonus-inline .bonus-input-wrap{display:flex;align-items:center;gap:6px}
+.bonus-inline .bonus-input{width:72px;padding:6px 10px;border:1.5px solid rgba(255,255,255,.4);border-radius:8px;font-size:15px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);text-align:center;outline:none}
+.bonus-inline .bonus-input:focus{border-color:var(--gold);background:rgba(255,255,255,.2)}
+.bonus-inline .bonus-input::placeholder{color:rgba(255,255,255,.4)}
+.bonus-inline .bonus-pct-label{font-size:15px;font-weight:700;color:var(--gold)}
 
-/* BÔNUS no card de período */
+/* BÔNUS (manter estilos dos cards) */
 .bonus-box{margin-top:12px;padding-top:12px;border-top:1.5px dashed var(--border);background:linear-gradient(135deg,#fdf6ee,#fff);border-radius:8px;padding:12px}
 .bonus-box-label{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
 .bonus-box-val{font-size:20px;font-weight:700;color:var(--purple)}
@@ -197,11 +195,18 @@ tfoot td.r{text-align:right}
 <div id="dashArea">
   <div class="wrap">
 
-    <!-- BARRA CORRETOR -->
+    <!-- BARRA CORRETOR + BÔNUS -->
     <div class="corretor-bar">
       <div>
         <strong id="infoNome">—</strong>
         <span id="infoCod">—</span>
+      </div>
+      <div class="bonus-inline">
+        <label>🎯 Bônus</label>
+        <div class="bonus-input-wrap">
+          <input class="bonus-input" type="number" id="bonusPct" value="0" min="0" max="100" step="0.1" oninput="renderResumo()" placeholder="0">
+          <span class="bonus-pct-label">%</span>
+        </div>
       </div>
       <button class="btn-novo" onclick="novoArquivo()">⬆ Carregar outra planilha</button>
     </div>
@@ -217,19 +222,6 @@ tfoot td.r{text-align:right}
          TAB 1 — RESUMO POR PERÍODO
     ══════════════════════════════════════════ -->
     <div class="tab-content active" id="tab-resumo">
-
-      <!-- BÔNUS CONFIGURÁVEL -->
-      <div class="bonus-bar">
-        <div class="bonus-title"><span>🎯</span> Bônus por Produção</div>
-        <div>
-          <label>% de Bônus</label>
-          <div class="bonus-input-wrap">
-            <input class="bonus-input" type="number" id="bonusPct" value="0" min="0" max="100" step="0.1" oninput="renderResumo()">
-            <span class="bonus-pct-label">%</span>
-            <span class="bonus-info">calculado sobre o valor total implantado de cada período</span>
-          </div>
-        </div>
-      </div>
 
       <!-- FILTROS DO RESUMO -->
       <div class="filter-bar">
@@ -600,11 +592,11 @@ function renderResumo() {
   // KPIs
   const bonusTotal = totalImp * bonusPct / 100;
   document.getElementById('kpiGeral').innerHTML=`
+    ${bonusPct > 0 ? `<div class="kpi" style="border-left-color:#C9913A"><div class="kpi-label">🎯 Bônus Total (${bonusPct}%)</div><div class="kpi-val" style="font-size:18px;color:#C9913A">R$&nbsp;${fmt(bonusTotal)}</div><div class="kpi-sub">sobre R$ ${fmt(totalImp)} implantado</div></div>` : ''}
     <div class="kpi"><div class="kpi-label">Total de Vendas</div><div class="kpi-val">${total}</div><div class="kpi-sub">no filtro selecionado</div></div>
     <div class="kpi"><div class="kpi-label">Valor Total</div><div class="kpi-val" style="font-size:18px">R$&nbsp;${fmt(totalV)}</div><div class="kpi-sub">soma dos boletos</div></div>
     <div class="kpi p"><div class="kpi-label">Implantadas</div><div class="kpi-val">${imp}</div><div class="kpi-sub">${total?((imp/total)*100).toFixed(0):0}% · R$ ${fmt(totalImp)}</div></div>
     <div class="kpi p"><div class="kpi-label">Períodos</div><div class="kpi-val">${periodos.length}</div><div class="kpi-sub">${periodos[0]||'—'} → ${periodos[periodos.length-1]||'—'}</div></div>
-    ${bonusPct > 0 ? `<div class="kpi" style="border-left-color:#C9913A"><div class="kpi-label">🎯 Bônus Total (${bonusPct}%)</div><div class="kpi-val" style="font-size:18px;color:#C9913A">R$&nbsp;${fmt(bonusTotal)}</div><div class="kpi-sub">sobre R$ ${fmt(totalImp)} implantado</div></div>` : ''}
   `;
 
   document.getElementById('bPeriodo').textContent = periodos.length;
