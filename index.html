@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard de Produção – Affinity</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 :root{--purple:#4A2050;--purple-l:#6b3578;--gold:#C9913A;--gold-l:#e0aa55;--bg:#f4f1f8;--card:#fff;--text:#2a1a2e;--muted:#7a6080;--border:#e2d9ea;--green:#2e7d5e;--orange:#b8540a;--red:#9b2020;--blue:#1a5fa8;--radius:14px;--shadow:0 2px 16px rgba(74,32,80,.10)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -829,82 +830,260 @@ function exportarExcel() {
   const data = filtDet();
   if (!data.length) { alert('Nenhum dado para exportar.'); return; }
 
-  const corretor = document.getElementById('infoNome').textContent;
-  const cod      = document.getElementById('infoCod').textContent;
-  const agora    = new Date().toLocaleDateString('pt-BR');
+  const corretor  = document.getElementById('infoNome').textContent;
+  const cod       = document.getElementById('infoCod').textContent;
+  const agora     = new Date().toLocaleDateString('pt-BR');
+  const bonusPct  = parseFloat(document.getElementById('bonusPct')?.value || 0) || 0;
+  const periodo   = document.getElementById('fPeriodo2').value || 'Todos os períodos';
+  const totV      = data.reduce((s,r) => s + r.boleto, 0);
+  const totA      = data.filter(r => r.antecipacao).length;
+  const totImp    = data.filter(r => r.statusKey==='implantada').reduce((s,r) => s + r.boleto, 0);
+  const totBonus  = totImp * bonusPct / 100;
 
-  // Cabeçalho informativo
-  const cabecalho = [
-    ['Affinity Corretora de Seguros — Dashboard de Produção'],
-    [`Corretor: ${corretor}   |   ${cod}   |   Exportado em: ${agora}`],
-    [],
-    ['Segurado','Operadora','Modalidade','Plano','Boleto (R$)','Assinatura','Período','Antecipação','Status']
+  // ── Estilos ──────────────────────────────────────────────────
+  const PURPLE  = '4A2050';
+  const GOLD    = 'C9913A';
+  const GOLD_L  = 'F0E6D3';
+  const WHITE   = 'FFFFFF';
+  const BG_LIGHT= 'F4F1F8';
+  const GREEN   = '2E7D5E';
+  const RED     = '9B2020';
+  const MUTED   = '7A6080';
+
+  const border = {
+    top:    {style:'thin', color:{rgb:'E2D9EA'}},
+    bottom: {style:'thin', color:{rgb:'E2D9EA'}},
+    left:   {style:'thin', color:{rgb:'E2D9EA'}},
+    right:  {style:'thin', color:{rgb:'E2D9EA'}},
+  };
+
+  const s = {
+    // Linha título (Affinity)
+    title: {
+      font:      {bold:true, sz:14, color:{rgb:WHITE}},
+      fill:      {fgColor:{rgb:PURPLE}},
+      alignment: {horizontal:'left', vertical:'center'},
+    },
+    // Linha subtítulo (corretor)
+    sub: {
+      font:      {bold:false, sz:10, color:{rgb:WHITE}},
+      fill:      {fgColor:{rgb:PURPLE}},
+      alignment: {horizontal:'left', vertical:'center'},
+    },
+    // Linha em branco com fundo roxo
+    purpleBg: {
+      fill: {fgColor:{rgb:PURPLE}},
+    },
+    // Cabeçalho das colunas
+    colHead: {
+      font:      {bold:true, sz:10, color:{rgb:WHITE}},
+      fill:      {fgColor:{rgb:PURPLE}},
+      alignment: {horizontal:'center', vertical:'center', wrapText:true},
+      border,
+    },
+    // Linha de dado — normal
+    cell: {
+      font:      {sz:10, color:{rgb:'2A1A2E'}},
+      fill:      {fgColor:{rgb:WHITE}},
+      alignment: {horizontal:'left', vertical:'center'},
+      border,
+    },
+    // Linha de dado — zebra
+    cellZ: {
+      font:      {sz:10, color:{rgb:'2A1A2E'}},
+      fill:      {fgColor:{rgb:BG_LIGHT}},
+      alignment: {horizontal:'left', vertical:'center'},
+      border,
+    },
+    // Célula numérica
+    num: (zebra) => ({
+      font:      {sz:10, color:{rgb:'2A1A2E'}},
+      fill:      {fgColor:{rgb: zebra ? BG_LIGHT : WHITE}},
+      alignment: {horizontal:'right', vertical:'center'},
+      numFmt:    '#,##0.00',
+      border,
+    }),
+    // Antecipação Sim
+    antSim: (zebra) => ({
+      font:      {bold:true, sz:10, color:{rgb:GREEN}},
+      fill:      {fgColor:{rgb: zebra ? 'D8F0E6' : 'E6F4EE'}},
+      alignment: {horizontal:'center', vertical:'center'},
+      border,
+    }),
+    // Antecipação Não
+    antNao: (zebra) => ({
+      font:      {bold:true, sz:10, color:{rgb:RED}},
+      fill:      {fgColor:{rgb: zebra ? 'FAE0E0' : 'FDE8E8'}},
+      alignment: {horizontal:'center', vertical:'center'},
+      border,
+    }),
+    // Status pill
+    statusStyle: (key, zebra) => {
+      const map = {
+        implantada:   {fg:'E6F4EE', fc:GREEN},
+        inadimplente: {fg:'FEF0E0', fc:'B8540A'},
+        'ag-imp':     {fg:'E6EEFA', fc:'1A5FA8'},
+        'ag-op':      {fg:'F0EAF5', fc:'6B3578'},
+        cancelada:    {fg:'FDE8E8', fc:RED},
+      };
+      const c = map[key] || {fg:'F0EAF5', fc:'6B3578'};
+      return {
+        font:      {bold:true, sz:10, color:{rgb: zebra ? c.fc : c.fc}},
+        fill:      {fgColor:{rgb: c.fg}},
+        alignment: {horizontal:'center', vertical:'center'},
+        border,
+      };
+    },
+    // Rodapé total
+    foot: {
+      font:      {bold:true, sz:10, color:{rgb:PURPLE}},
+      fill:      {fgColor:{rgb:GOLD_L}},
+      alignment: {horizontal:'left', vertical:'center'},
+      border:    {top:{style:'medium',color:{rgb:GOLD}}, bottom:{style:'medium',color:{rgb:GOLD}}, left:{style:'thin',color:{rgb:GOLD}}, right:{style:'thin',color:{rgb:GOLD}}},
+    },
+    footNum: {
+      font:      {bold:true, sz:10, color:{rgb:PURPLE}},
+      fill:      {fgColor:{rgb:GOLD_L}},
+      alignment: {horizontal:'right', vertical:'center'},
+      numFmt:    '#,##0.00',
+      border:    {top:{style:'medium',color:{rgb:GOLD}}, bottom:{style:'medium',color:{rgb:GOLD}}, left:{style:'thin',color:{rgb:GOLD}}, right:{style:'thin',color:{rgb:GOLD}}},
+    },
+    footCenter: {
+      font:      {bold:true, sz:10, color:{rgb:PURPLE}},
+      fill:      {fgColor:{rgb:GOLD_L}},
+      alignment: {horizontal:'center', vertical:'center'},
+      border:    {top:{style:'medium',color:{rgb:GOLD}}, bottom:{style:'medium',color:{rgb:GOLD}}, left:{style:'thin',color:{rgb:GOLD}}, right:{style:'thin',color:{rgb:GOLD}}},
+    },
+    // Bloco bônus
+    bonusHead: {
+      font:      {bold:true, sz:10, color:{rgb:WHITE}},
+      fill:      {fgColor:{rgb:GOLD}},
+      alignment: {horizontal:'left', vertical:'center'},
+      border,
+    },
+    bonusVal: {
+      font:      {bold:true, sz:11, color:{rgb:GOLD}},
+      fill:      {fgColor:{rgb:GOLD_L}},
+      alignment: {horizontal:'right', vertical:'center'},
+      numFmt:    '#,##0.00',
+      border,
+    },
+    empty: (bg) => ({ fill:{fgColor:{rgb: bg||WHITE}} }),
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function C(v, style, numFmt) {
+    const c = {v, s: style};
+    if (numFmt) c.z = numFmt;
+    if (typeof v === 'number') c.t = 'n';
+    else c.t = 's';
+    return c;
+  }
+
+  const COLS = ['A','B','C','D','E','F','G','H','I'];
+  const NCOLS = 9;
+
+  // ── Montar linhas ─────────────────────────────────────────────
+  // Linha 1: cabeçalho Affinity
+  const r1 = [C('Affinity Corretora de Seguros  —  Dashboard de Produção', s.title)];
+  for(let i=1;i<NCOLS;i++) r1.push(C('', s.purpleBg));
+
+  // Linha 2: corretor + período
+  const r2 = [C(`${corretor}   ·   ${cod}   ·   Período: ${periodo}   ·   Exportado em: ${agora}`, s.sub)];
+  for(let i=1;i<NCOLS;i++) r2.push(C('', s.purpleBg));
+
+  // Linha 3: separador roxo
+  const r3 = Array(NCOLS).fill(null).map(()=>C('', s.purpleBg));
+
+  // Linha 4: cabeçalho colunas
+  const r4 = [
+    C('Segurado', s.colHead), C('Operadora', s.colHead), C('Modalidade', s.colHead),
+    C('Plano', s.colHead), C('Boleto (R$)', s.colHead), C('Assinatura', s.colHead),
+    C('Período', s.colHead), C('Antecipação', s.colHead), C('Status', s.colHead),
   ];
 
-  const linhas = data.map(r => [
-    r.segurado,
-    r.operadora,
-    r.modalidade,
-    r.plano,
-    r.boleto,
-    r.assinatura,
-    r.periodo,
-    r.antecipacao ? 'Sim' : 'Não',
-    r.status
-  ]);
-
-  const totV = data.reduce((s,r)=>s+r.boleto,0);
-  const totA = data.filter(r=>r.antecipacao).length;
-  const rodape = [
-    [],
-    [`TOTAL: ${data.length} registros`, '', '', '', totV, '', '', `${totA} antecipadas`, '']
-  ];
-
-  const wb   = XLSX.utils.book_new();
-  const rows = [...cabecalho, ...linhas, ...rodape];
-  const ws   = XLSX.utils.aoa_to_sheet(rows);
-
-  // Larguras de coluna
-  ws['!cols'] = [
-    {wch:40},{wch:20},{wch:18},{wch:15},{wch:14},
-    {wch:13},{wch:10},{wch:13},{wch:28}
-  ];
-
-  // Estilos (cabeçalho roxo + negrito)
-  const purple = '4A2050';
-  const gold   = 'C9913A';
-  const headerStyle = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:purple}}, alignment:{horizontal:'center'} };
-  const titleStyle  = { font:{bold:true,sz:13,color:{rgb:purple}} };
-  const subStyle    = { font:{italic:true,color:{rgb:'7a6080'}} };
-  const colStyle    = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:purple}} };
-  const totStyle    = { font:{bold:true,color:{rgb:purple}}, fill:{fgColor:{rgb:'f0ebf5'}} };
-
-  // Linha 1 título
-  if(ws['A1']) { ws['A1'].s = titleStyle; }
-  if(ws['A2']) { ws['A2'].s = subStyle; }
-
-  // Linha de colunas (row 4 = index 3)
-  ['A','B','C','D','E','F','G','H','I'].forEach(c => {
-    const cell = ws[c+'4'];
-    if(cell) cell.s = colStyle;
+  // Linhas de dados
+  const statusLabel = {implantada:'Implantada',inadimplente:'Inadimplente','ag-imp':'Ag. Implantação','ag-op':'Ag. Operadora',cancelada:'Cancelada'};
+  const dataRows = data.map((r, i) => {
+    const z = i % 2 === 1;
+    const cs = z ? s.cellZ : s.cell;
+    return [
+      C(r.segurado||'—',    cs),
+      C(r.operadora||'—',   cs),
+      C(r.modalidade||'—',  cs),
+      C(r.plano||'—',       cs),
+      C(r.boleto,           s.num(z), '#,##0.00'),
+      C(r.assinatura||'—',  cs),
+      C(r.periodo||'—',     {...cs, alignment:{horizontal:'center',vertical:'center'}}),
+      C(r.antecipacao ? 'Sim' : 'Não', r.antecipacao ? s.antSim(z) : s.antNao(z)),
+      C(statusLabel[r.statusKey]||r.status, s.statusStyle(r.statusKey, z)),
+    ];
   });
 
-  // Linha de total
-  const totRow = 4 + linhas.length + 2;
-  ['A','B','C','D','E','F','G','H','I'].forEach(c => {
-    const cell = ws[c+totRow];
-    if(cell) cell.s = totStyle;
+  // Linha total
+  const rTot = [
+    C(`TOTAL  (${data.length} registros)`, s.foot),
+    C('', s.foot), C('', s.foot), C('', s.foot),
+    C(totV,  s.footNum),
+    C('', s.foot), C('', s.foot),
+    C(`${totA} antecip.`, s.footCenter),
+    C('', s.foot),
+  ];
+
+  // Linhas de bônus (se houver)
+  const bonusRows = bonusPct > 0 ? [
+    Array(NCOLS).fill(null).map(()=>C('', s.empty(GOLD_L))),
+    [
+      C(`🎯  Bônus (${bonusPct}%)  —  base: R$ ${totImp.toLocaleString('pt-BR',{minimumFractionDigits:2})} implantado`, s.bonusHead),
+      ...Array(NCOLS-2).fill(null).map(()=>C('', s.bonusHead)),
+      C(totBonus, s.bonusVal),
+    ],
+  ] : [];
+
+  // ── Montar sheet ─────────────────────────────────────────────
+  const allRows = [r1, r2, r3, r4, ...dataRows, rTot, ...bonusRows];
+
+  const ws = {};
+  allRows.forEach((row, ri) => {
+    row.forEach((cell, ci) => {
+      if (!cell) return;
+      const addr = COLS[ci] + (ri + 1);
+      ws[addr] = cell;
+    });
   });
 
-  // Merge título
+  const lastRow = allRows.length;
+  ws['!ref'] = `A1:${COLS[NCOLS-1]}${lastRow}`;
+
+  // Larguras
+  ws['!cols'] = [{wch:38},{wch:20},{wch:16},{wch:14},{wch:14},{wch:13},{wch:10},{wch:13},{wch:22}];
+
+  // Alturas
+  ws['!rows'] = [
+    {hpt:22}, // título
+    {hpt:16}, // subtítulo
+    {hpt:6},  // separador
+    {hpt:30}, // cabeçalho
+    ...data.map(()=>({hpt:18})),
+    {hpt:20}, // total
+  ];
+
+  // Merges: título e subtítulo
   ws['!merges'] = [
-    {s:{r:0,c:0}, e:{r:0,c:8}},
-    {s:{r:1,c:0}, e:{r:1,c:8}},
+    {s:{r:0,c:0}, e:{r:0,c:NCOLS-1}},
+    {s:{r:1,c:0}, e:{r:1,c:NCOLS-1}},
+    {s:{r:2,c:0}, e:{r:2,c:NCOLS-1}},
+    {s:{r:4+data.length,c:0}, e:{r:4+data.length,c:3}}, // merge "TOTAL"
+    ...(bonusPct > 0 ? [{s:{r:4+data.length+2,c:0}, e:{r:4+data.length+2,c:NCOLS-2}}] : []),
   ];
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Detalhamento');
-  const periodo = document.getElementById('fPeriodo2').value || 'todos';
-  XLSX.writeFile(wb, 'producao_' + corretor.split(' ')[0].toLowerCase() + '_' + periodo.replace('/','_') + '.xlsx');
+  // ── Usar XLSXStyle se disponível, senão fallback ──────────────
+  const XS = window.XLSXStyle || XLSX;
+  const wb = XS.utils.book_new();
+  XS.utils.book_append_sheet(wb, ws, 'Detalhamento');
+
+  const nomeArq = 'producao_' + corretor.split(' ')[0].toLowerCase() + '_' + periodo.replace('/','_') + '.xlsx';
+  XS.writeFile(wb, nomeArq);
 }
 
 // ─── UTILS ───────────────────────────────────────────────────
